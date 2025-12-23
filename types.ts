@@ -44,7 +44,7 @@ export interface Activity {
   title: string;
   description: string;
   estimates: TeamEstimate[];
-  isIncluded?: boolean; // New: Flag to determine if it goes to the planning board
+  isIncluded?: boolean; // Flag to determine if it goes to the planning board
 }
 
 export interface Allocation {
@@ -76,4 +76,4 @@ export interface Plan {
   holidays: Holiday[];
 }
 
-export type ViewType = 'dashboard' | 'teams' | 'activities' | 'priority' | 'board' | 'calendar' | 'track' | 'settings';
+export type ViewType = 'dashboard' | 'teams' | 'activities' | 'priority' | 'board' | 'calendar' | 'track' | 'settings' | 'roadmap';

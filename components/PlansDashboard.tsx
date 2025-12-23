@@ -15,7 +15,8 @@ import {
   Hash,
   Settings2,
   X,
-  Check
+  Check,
+  Map as MapIcon
 } from 'lucide-react';
 
 interface PlansDashboardProps {
@@ -24,6 +25,7 @@ interface PlansDashboardProps {
   onDeletePlan: (id: string) => void;
   onEnterPlan: (id: string) => void;
   onUpdatePlan: (id: string, updates: Partial<Plan>) => void;
+  onNavigateRoadmap: () => void;
 }
 
 const PlansDashboard: React.FC<PlansDashboardProps> = ({ 
@@ -31,7 +33,8 @@ const PlansDashboard: React.FC<PlansDashboardProps> = ({
   onCreatePlan, 
   onDeletePlan, 
   onEnterPlan,
-  onUpdatePlan
+  onUpdatePlan,
+  onNavigateRoadmap
 }) => {
   const [newPlanName, setNewPlanName] = useState('');
   const [newPlanStart, setNewPlanStart] = useState(new Date().toISOString().split('T')[0]);
@@ -100,19 +103,27 @@ const PlansDashboard: React.FC<PlansDashboardProps> = ({
           </p>
         </div>
         
-        <div className="flex items-center gap-2 bg-white p-1.5 rounded-2xl border border-slate-200 shadow-sm">
+        <div className="flex items-center gap-3">
           <button 
-            onClick={() => setActiveTab('active')}
-            className={`px-6 py-2 rounded-xl text-sm font-bold transition-all flex items-center gap-2 ${activeTab === 'active' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-100' : 'text-slate-400 hover:text-slate-600'}`}
+            onClick={onNavigateRoadmap}
+            className="px-6 py-2.5 rounded-2xl bg-indigo-50 text-indigo-600 font-black text-sm transition-all hover:bg-indigo-100 flex items-center gap-2 border border-indigo-100"
           >
-            <Layers size={16} /> Active
+            <MapIcon size={18} /> RoadMap
           </button>
-          <button 
-            onClick={() => setActiveTab('archive')}
-            className={`px-6 py-2 rounded-xl text-sm font-bold transition-all flex items-center gap-2 ${activeTab === 'archive' ? 'bg-slate-800 text-white shadow-lg shadow-slate-200' : 'text-slate-400 hover:text-slate-600'}`}
-          >
-            <ArchiveIcon size={16} /> Archive
-          </button>
+          <div className="flex items-center gap-2 bg-white p-1.5 rounded-2xl border border-slate-200 shadow-sm">
+            <button 
+              onClick={() => setActiveTab('active')}
+              className={`px-6 py-2 rounded-xl text-sm font-bold transition-all flex items-center gap-2 ${activeTab === 'active' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-100' : 'text-slate-400 hover:text-slate-600'}`}
+            >
+              <Layers size={16} /> Active
+            </button>
+            <button 
+              onClick={() => setActiveTab('archive')}
+              className={`px-6 py-2 rounded-xl text-sm font-bold transition-all flex items-center gap-2 ${activeTab === 'archive' ? 'bg-slate-800 text-white shadow-lg shadow-slate-200' : 'text-slate-400 hover:text-slate-600'}`}
+            >
+              <ArchiveIcon size={16} /> Archive
+            </button>
+          </div>
         </div>
       </div>
 

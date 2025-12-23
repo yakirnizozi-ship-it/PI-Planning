@@ -3,14 +3,17 @@ import React, { useState, useMemo } from 'react';
 import { 
   Users, 
   AlertTriangle, 
-  Info,
   Trash2,
   ListTodo,
   CalendarDays,
   Briefcase,
   AlertCircle,
   Weight,
-  Edit2
+  Edit2,
+  ChevronDown,
+  ChevronRight,
+  CheckCircle2,
+  Clock
 } from 'lucide-react';
 import { Team, Sprint, Activity, Allocation, Holiday, ActivityStatus, VacationRange } from '../types';
 
@@ -37,9 +40,17 @@ const PlanningBoard: React.FC<PlanningBoardProps> = ({
 }) => {
   const [showAllocationModal, setShowAllocationModal] = useState<{ activityId: string, teamId: string, sprintId: string, allocationId?: string } | null>(null);
   const [allocationEffort, setAllocationEffort] = useState<string>('0');
+  const [expandedActivities, setExpandedActivities] = useState<Record<string, boolean>>({});
 
   // Filter activities to only show those included for this PI planning session
   const includedActivities = useMemo(() => activities.filter(a => a.isIncluded), [activities]);
+
+  const toggleActivityExpand = (id: string) => {
+    setExpandedActivities(prev => ({
+      ...prev,
+      [id]: !(prev[id] ?? true) // Default to true if not set, then toggle
+    }));
+  };
 
   // Helper: check if a specific date falls within any defined ranges using string comparison
   const isDateInRanges = (isoDate: string, ranges: {startDate: string, endDate: string}[]) => {
@@ -100,7 +111,7 @@ const PlanningBoard: React.FC<PlanningBoardProps> = ({
 
   const getActivityTeamStats = (activityId: string, teamId: string) => {
     const activity = activities.find(a => a.id === activityId);
-    if (!activity) return { estimated: 0, allocated: 0, remaining: 0, isOver: false, overdue: 0, status: 'To Do' as ActivityStatus };
+    if (!activity) return { estimated: 0, allocated: 0, remaining: 0, isOver: false, isUnder: false, overdue: 0, status: 'To Do' as ActivityStatus };
     
     const estimateObj = activity.estimates.find(e => e.teamId === teamId);
     const estimate = estimateObj?.effort || 0;
@@ -110,11 +121,13 @@ const PlanningBoard: React.FC<PlanningBoardProps> = ({
       .reduce((sum, a) => sum + a.effort, 0);
     
     const isOver = allocated > estimate;
+    const isUnder = allocated < estimate;
     return {
       estimated: estimate,
       allocated,
       remaining: Math.max(0, estimate - allocated),
       isOver,
+      isUnder,
       overdue: isOver ? allocated - estimate : 0,
       status
     };
@@ -255,8 +268,8 @@ const PlanningBoard: React.FC<PlanningBoardProps> = ({
                     const used = getTeamSprintUsedEffort(team.id, sprint.id);
                     const percent = capacity > 0 ? (used / capacity) * 100 : 0;
                     const isOver = percent > 100;
-                    const statusColor = isOver ? 'bg-red-500' : percent > 85 ? 'bg-amber-500' : 'bg-green-500';
-                    const textColor = isOver ? 'text-red-700' : percent > 85 ? 'text-amber-700' : 'text-green-700';
+                    const statusColor = isOver ? 'bg-red-500' : percent > 85 ? 'bg-amber-500' : 'bg-emerald-500';
+                    const textColor = isOver ? 'text-red-700' : percent > 85 ? 'text-amber-700' : 'text-emerald-700';
 
                     return (
                       <td 
@@ -266,22 +279,23 @@ const PlanningBoard: React.FC<PlanningBoardProps> = ({
                         onDrop={(e) => { e.currentTarget.classList.remove('drag-over'); handleDrop(e, team.id, sprint.id); }}
                         className={`p-4 min-h-[160px] align-top transition-colors border-r border-slate-100 last:border-r-0 ${isOver ? 'bg-red-50/40' : ''}`}
                       >
-                        <div className={`mb-4 p-2 rounded-xl flex items-center justify-between border transition-all shadow-sm ${isOver ? 'bg-white border-red-500 scale-[1.02]' : 'bg-slate-50 border-slate-100'}`}>
+                        {/* Capacity Bar */}
+                        <div className={`mb-3 p-1.5 px-2.5 rounded-xl flex items-center justify-between border transition-all shadow-sm ${isOver ? 'bg-white border-red-500' : 'bg-white border-slate-100'}`}>
                           <div className="flex flex-col flex-1">
-                            <div className="flex items-center justify-between">
-                                <span className={`text-[9px] font-black uppercase tracking-tighter ${textColor}`}>
-                                    {used}d / {capacity}d
+                            <div className="flex items-center justify-between mb-0.5">
+                                <span className={`text-[9px] font-black uppercase tracking-tight ${textColor}`}>
+                                    {used}D / {capacity}D
                                 </span>
-                                {isOver && <span className="text-[9px] font-black text-red-600 uppercase">Warning</span>}
+                                {isOver && <span className="text-[8px] font-black text-red-600 uppercase">Warning</span>}
                             </div>
-                            <div className="w-full h-2 bg-slate-200 rounded-full mt-1.5 overflow-hidden">
+                            <div className="w-full h-1 bg-slate-100 rounded-full overflow-hidden">
                               <div 
                                 className={`h-full ${statusColor} transition-all duration-500 ${isOver ? 'animate-pulse' : ''}`} 
                                 style={{ width: `${Math.min(100, percent)}%` }} 
                               />
                             </div>
                           </div>
-                          {isOver && <AlertTriangle size={16} className="text-red-500 ml-3 animate-bounce" />}
+                          {isOver && <AlertTriangle size={14} className="text-red-500 ml-2 animate-bounce" />}
                         </div>
 
                         <div className="space-y-3">
@@ -351,55 +365,85 @@ const PlanningBoard: React.FC<PlanningBoardProps> = ({
             )}
             {includedActivities.map(activity => {
               const totalEst = activity.estimates.reduce((sum, e) => sum + e.effort, 0);
+              
+              const teamStatuses = activity.estimates.map(e => getActivityTeamStats(activity.id, e.teamId));
+              const isBalanced = teamStatuses.every(s => !s.isOver && !s.isUnder);
+              const hasOver = teamStatuses.some(s => s.isOver);
+              const hasUnder = teamStatuses.some(s => s.isUnder);
+
+              // The activity is expanded if either it's not balanced OR the user has manually toggled it to expand
+              const isExpanded = expandedActivities[activity.id] ?? !isBalanced;
+
               return (
                 <div 
                   key={activity.id}
                   draggable
                   onDragStart={(e) => { e.dataTransfer.setData('activityId', activity.id); }}
-                  className="bg-white p-5 rounded-[28px] border border-slate-200 shadow-sm cursor-grab active:cursor-grabbing hover:border-indigo-400 hover:shadow-lg transition-all group"
+                  className={`bg-white rounded-[28px] border shadow-sm transition-all duration-300 group ${isExpanded ? 'p-5 border-slate-200 cursor-grab active:cursor-grabbing hover:border-indigo-400 hover:shadow-lg' : 'p-4 border-slate-100 bg-slate-50/30'}`}
                 >
-                  <div className="flex justify-between items-start mb-3">
-                    <h4 className="font-bold text-slate-800 text-sm leading-tight group-hover:text-indigo-600 transition-colors flex-1 pr-2">{activity.title}</h4>
-                    <span className="bg-indigo-50 text-indigo-600 text-[9px] font-black px-2 py-0.5 rounded-lg border border-indigo-100 shrink-0 flex items-center gap-1">
-                      <Weight size={10} /> {totalEst}d
-                    </span>
+                  <div className={`flex justify-between items-start ${isExpanded ? 'mb-3' : ''}`}>
+                    <div className="flex items-center gap-2 flex-1 min-w-0 pr-2">
+                       <button 
+                         onClick={() => toggleActivityExpand(activity.id)}
+                         className="p-1 hover:bg-slate-100 rounded-lg text-slate-400 transition-colors shrink-0"
+                       >
+                         {isExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+                       </button>
+                       <h4 
+                         onClick={() => toggleActivityExpand(activity.id)}
+                         className={`font-bold text-slate-800 text-sm leading-tight cursor-pointer truncate ${isExpanded ? 'group-hover:text-indigo-600 transition-colors' : 'text-slate-600'}`}
+                        >
+                          {activity.title}
+                        </h4>
+                    </div>
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      {isBalanced && <CheckCircle2 size={12} className="text-emerald-500" />}
+                      {hasOver && <Clock size={12} className="text-red-500" title="Over-allocated" />}
+                      {hasUnder && <Clock size={12} className="text-amber-500" title="Under-allocated" />}
+                      <span className={`text-[9px] font-black px-2 py-0.5 rounded-lg border flex items-center gap-1 ${isExpanded ? 'bg-indigo-50 text-indigo-600 border-indigo-100' : 'bg-white text-slate-400 border-slate-100'}`}>
+                        <Weight size={10} /> {totalEst}d
+                      </span>
+                    </div>
                   </div>
-                  <div className="space-y-3">
-                    {activity.estimates.map(est => {
-                      const team = teams.find(t => t.id === est.teamId);
-                      const stats = getActivityTeamStats(activity.id, est.teamId);
-                      
-                      return (
-                        <div key={est.teamId} className="flex flex-col gap-1">
-                          <div className="flex items-center justify-between text-[10px]">
-                            <div className="flex items-center gap-1.5 truncate">
-                              <div className={`w-1.5 h-1.5 rounded-full ${getStatusIndicator(stats.status)}`} />
-                              <span className={`font-bold uppercase truncate ${stats.isOver ? 'text-red-600' : 'text-slate-400'}`}>
-                                {team?.name}
+
+                  {isExpanded && (
+                    <div className="space-y-3 animate-in fade-in slide-in-from-top-1 duration-200">
+                      {activity.estimates.map(est => {
+                        const team = teams.find(t => t.id === est.teamId);
+                        const stats = getActivityTeamStats(activity.id, est.teamId);
+                        
+                        const labelColor = stats.isOver ? 'text-red-600' : stats.isUnder ? 'text-amber-600' : 'text-slate-400';
+                        const valueColor = stats.isOver ? 'text-red-600' : stats.isUnder ? 'text-amber-600' : 'text-indigo-600';
+
+                        return (
+                          <div key={est.teamId} className="flex flex-col gap-1">
+                            <div className="flex items-center justify-between text-[10px]">
+                              <div className="flex items-center gap-1.5 truncate">
+                                <div className={`w-1.5 h-1.5 rounded-full ${getStatusIndicator(stats.status)}`} />
+                                <span className={`font-bold uppercase truncate ${labelColor}`}>
+                                  {team?.name}
+                                </span>
+                              </div>
+                              <span className={`font-black shrink-0 ml-1 ${valueColor}`}>
+                                {stats.isOver ? `Over: +${stats.overdue}d` : stats.isUnder ? `${stats.remaining}d rem.` : 'Balanced'}
                               </span>
                             </div>
-                            <span className={`font-black shrink-0 ml-1 ${stats.isOver ? 'text-red-600' : 'text-indigo-600'}`}>
-                              {stats.isOver ? `Over: +${stats.overdue}d` : `${stats.remaining}d rem.`}
-                            </span>
+                            <div className="w-full h-1 bg-slate-50 rounded-full overflow-hidden">
+                              <div 
+                                className={`h-full transition-all duration-500 ${stats.isOver ? 'bg-red-500' : stats.isUnder ? 'bg-amber-400' : 'bg-indigo-200'}`} 
+                                style={{ width: `${Math.min(100, (stats.allocated / stats.estimated) * 100)}%` }} 
+                              />
+                            </div>
                           </div>
-                          <div className="w-full h-1 bg-slate-50 rounded-full overflow-hidden">
-                            <div 
-                              className={`h-full transition-all duration-500 ${stats.isOver ? 'bg-red-500' : 'bg-indigo-200'}`} 
-                              style={{ width: `${Math.min(100, (stats.allocated / stats.estimated) * 100)}%` }} 
-                            />
-                          </div>
+                        );
+                      })}
+                      {isBalanced && (
+                        <div className="flex items-center gap-1 text-[10px] text-emerald-600 font-black uppercase py-1">
+                          <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div> Balanced
                         </div>
-                      );
-                    })}
-                    {activity.estimates.every(e => {
-                      const stats = getActivityTeamStats(activity.id, e.teamId);
-                      return stats.remaining === 0 || stats.isOver;
-                    }) && (
-                      <div className="flex items-center gap-1 text-[10px] text-emerald-600 font-black uppercase py-1">
-                        <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div> Balanced
-                      </div>
-                    )}
-                  </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               );
             })}

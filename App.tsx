@@ -9,9 +9,9 @@ import {
   ChevronLeft,
   Briefcase,
   Calendar as CalendarIcon,
-  // Changed TrackIcon to Activity as ActivityIcon to avoid name collision with Activity type
   Activity as ActivityIcon,
-  Star
+  Star,
+  Map as MapIcon
 } from 'lucide-react';
 import { Plan, ViewType, Team, Activity, Allocation, Holiday, PIConfig, ActivityStatus } from './types';
 import TeamManager from './components/TeamManager';
@@ -22,6 +22,7 @@ import PlansDashboard from './components/PlansDashboard';
 import TeamCalendar from './components/TeamCalendar';
 import TrackDashboard from './components/TrackDashboard';
 import PriorityView from './components/PriorityView';
+import RoadmapView from './components/RoadmapView';
 
 const App: React.FC = () => {
   const [plans, setPlans] = useState<Plan[]>([]);
@@ -158,7 +159,7 @@ const App: React.FC = () => {
             <h1 className="text-xl font-bold text-slate-800 tracking-tight hidden sm:block">AgileNexus <span className="text-indigo-600">ART</span></h1>
           </div>
           
-          {activePlan && (
+          {(activePlan || view === 'roadmap') && (
             <div className="flex items-center gap-3 ml-4 border-l border-slate-200 pl-6">
               <button 
                 onClick={() => { setView('dashboard'); setActivePlanId(null); }}
@@ -168,8 +169,12 @@ const App: React.FC = () => {
                 <ChevronLeft size={20} />
               </button>
               <div>
-                <p className="text-[10px] uppercase font-black text-slate-400">Current Plan</p>
-                <h2 className="text-sm font-black text-slate-800">{activePlan.name}</h2>
+                <p className="text-[10px] uppercase font-black text-slate-400">
+                  {view === 'roadmap' ? 'Global View' : 'Current Plan'}
+                </p>
+                <h2 className="text-sm font-black text-slate-800">
+                  {view === 'roadmap' ? 'Yearly Roadmap' : activePlan?.name}
+                </h2>
               </div>
             </div>
           )}
@@ -182,7 +187,6 @@ const App: React.FC = () => {
               { id: 'activities', icon: ListTodo, label: 'Backlog' },
               { id: 'priority', icon: Star, label: 'Priority' },
               { id: 'board', icon: LayoutDashboard, label: 'Board' },
-              // Using aliased ActivityIcon instead of non-existent TrackIcon
               { id: 'track', icon: ActivityIcon, label: 'Track' },
               { id: 'calendar', icon: CalendarIcon, label: 'Calendar' },
               { id: 'settings', icon: Settings, label: 'Config' }
@@ -198,6 +202,11 @@ const App: React.FC = () => {
               </button>
             ))}
           </nav>
+        ) : view === 'roadmap' ? (
+           <div className="bg-indigo-50 px-4 py-2 rounded-xl border border-indigo-100 flex items-center gap-2">
+             <MapIcon size={16} className="text-indigo-600" />
+             <span className="text-xs font-bold text-indigo-700 uppercase tracking-widest">Multi-Cycle Roadmap</span>
+           </div>
         ) : (
           <div className="bg-indigo-50 px-4 py-2 rounded-xl border border-indigo-100">
             <span className="text-xs font-bold text-indigo-700">Multi-Plan Dashboard</span>
@@ -220,7 +229,11 @@ const App: React.FC = () => {
               onDeletePlan={handleDeletePlan} 
               onEnterPlan={enterPlan}
               onUpdatePlan={handleUpdatePlan}
+              onNavigateRoadmap={() => setView('roadmap')}
             />
+          )}
+          {view === 'roadmap' && (
+            <RoadmapView plans={plans} onEnterPlan={enterPlan} />
           )}
           {activePlan && (
             <>
@@ -238,7 +251,7 @@ const App: React.FC = () => {
                   teams={activePlan.teams}
                   allocations={activePlan.allocations}
                   onAddActivity={(a) => updateActivePlan({ activities: [...activePlan.activities, a] })}
-                  onDeleteActivity={(id) => updateActivePlan({ activities: activePlan.activities.filter(a => a.id !== id) })}
+                  onDeleteActivity={(id) => updateActivePlan({ activities: activePlan.activities.filter(a => id !== a.id) })}
                   onUpdateTeamStatus={updateActivityTeamStatus}
                   onUpdateActivity={handleUpdateActivity}
                 />
