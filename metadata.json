@@ -1,5 +1,5 @@
 {
-  "name": "PI Planner - Prod",
+  "name": "PI Planner - Dev",
   "description": "A comprehensive Program Increment planning tool for agile teams, featuring swimlane boards, automated capacity calculations, and multi-team activity tracking.",
   "requestFramePermissions": []
 }
