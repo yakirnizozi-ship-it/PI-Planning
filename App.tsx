@@ -5,7 +5,6 @@ import {
   ListTodo, 
   LayoutDashboard, 
   Settings,
-  CalendarDays,
   ChevronLeft,
   Briefcase,
   Calendar as CalendarIcon,
@@ -13,7 +12,7 @@ import {
   Star,
   Map as MapIcon
 } from 'lucide-react';
-import { Plan, ViewType, Team, Activity, Allocation, Holiday, PIConfig, ActivityStatus } from './types';
+import { Plan, ViewType, Activity, Allocation, RoadmapItem, ActivityStatus } from './types';
 import TeamManager from './components/TeamManager';
 import ActivityManager from './components/ActivityManager';
 import PlanningBoard from './components/PlanningBoard';
@@ -26,26 +25,27 @@ import RoadmapView from './components/RoadmapView';
 
 const App: React.FC = () => {
   const [plans, setPlans] = useState<Plan[]>([]);
+  const [roadmapItems, setRoadmapItems] = useState<RoadmapItem[]>([]);
   const [activePlanId, setActivePlanId] = useState<string | null>(null);
   const [view, setView] = useState<ViewType>('dashboard');
 
   // Persistence
   useEffect(() => {
     const savedPlans = localStorage.getItem('pi-plans-v2');
-    if (savedPlans) {
-      setPlans(JSON.parse(savedPlans));
-    }
+    const savedRoadmap = localStorage.getItem('art-roadmap-v1');
+    if (savedPlans) setPlans(JSON.parse(savedPlans));
+    if (savedRoadmap) setRoadmapItems(JSON.parse(savedRoadmap));
   }, []);
 
   useEffect(() => {
     localStorage.setItem('pi-plans-v2', JSON.stringify(plans));
-  }, [plans]);
+    localStorage.setItem('art-roadmap-v1', JSON.stringify(roadmapItems));
+  }, [plans, roadmapItems]);
 
   const activePlan = useMemo(() => 
     plans.find(p => p.id === activePlanId) || null
   , [plans, activePlanId]);
 
-  // Sprint calculation moved inside App for use across components
   const activeSprints = useMemo(() => {
     if (!activePlan) return [];
     const generated = [];
@@ -76,16 +76,24 @@ const App: React.FC = () => {
   const handleUpdatePlan = (id: string, updates: Partial<Plan>) => {
     setPlans(prev => prev.map(p => {
       if (p.id !== id) return p;
-      
       const newPlan = { ...p, ...updates };
-      
-      // Handle Baseline Capture logic
       if (p.status === 'draft' && updates.status === 'active') {
         newPlan.baselineAllocations = JSON.parse(JSON.stringify(p.allocations));
       }
-      
       return newPlan;
     }));
+  };
+
+  const handleUpdateRoadmapItem = (id: string, updates: Partial<RoadmapItem>) => {
+    setRoadmapItems(prev => prev.map(ri => ri.id === id ? { ...ri, ...updates } : ri));
+  };
+
+  const handleCreateRoadmapItem = (item: RoadmapItem) => {
+    setRoadmapItems(prev => [...prev, item]);
+  };
+
+  const handleDeleteRoadmapItem = (id: string) => {
+    setRoadmapItems(prev => prev.filter(ri => ri.id !== id));
   };
 
   const handleCreatePlan = (name: string, config?: { startDate: string, numberOfSprints: number }) => {
@@ -134,20 +142,6 @@ const App: React.FC = () => {
     updateActivePlan({ activities: updatedActivities });
   };
 
-  const handleUpdateActivity = (updated: Activity) => {
-    if (!activePlan) return;
-    updateActivePlan({
-      activities: activePlan.activities.map(a => a.id === updated.id ? updated : a)
-    });
-  };
-
-  const handleUpdateAllocation = (updated: Allocation) => {
-    if (!activePlan) return;
-    updateActivePlan({
-      allocations: activePlan.allocations.map(a => a.id === updated.id ? updated : a)
-    });
-  };
-
   return (
     <div className="min-h-screen flex flex-col bg-slate-50">
       <header className="bg-white border-b border-slate-200 px-6 py-4 flex items-center justify-between sticky top-0 z-50">
@@ -156,7 +150,7 @@ const App: React.FC = () => {
             <div className="bg-indigo-600 p-2 rounded-lg">
               <Briefcase className="text-white w-6 h-6" />
             </div>
-            <h1 className="text-xl font-bold text-slate-800 tracking-tight hidden sm:block">AgileNexus <span className="text-indigo-600">ART</span></h1>
+            <h1 className="text-xl font-bold text-slate-800 tracking-tight hidden sm:block">Agile<span className="text-indigo-600">ART</span></h1>
           </div>
           
           {(activePlan || view === 'roadmap') && (
@@ -170,10 +164,10 @@ const App: React.FC = () => {
               </button>
               <div>
                 <p className="text-[10px] uppercase font-black text-slate-400">
-                  {view === 'roadmap' ? 'Global View' : 'Current Plan'}
+                  {view === 'roadmap' ? 'Strategy' : 'Execution'}
                 </p>
                 <h2 className="text-sm font-black text-slate-800">
-                  {view === 'roadmap' ? 'Yearly Roadmap' : activePlan?.name}
+                  {view === 'roadmap' ? 'Strategic Roadmap' : activePlan?.name}
                 </h2>
               </div>
             </div>
@@ -194,7 +188,6 @@ const App: React.FC = () => {
               <button 
                 key={btn.id}
                 onClick={() => setView(btn.id as ViewType)}
-                title={btn.label}
                 className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-all ${view === btn.id ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
               >
                 <btn.icon size={18} />
@@ -205,17 +198,17 @@ const App: React.FC = () => {
         ) : view === 'roadmap' ? (
            <div className="bg-indigo-50 px-4 py-2 rounded-xl border border-indigo-100 flex items-center gap-2">
              <MapIcon size={16} className="text-indigo-600" />
-             <span className="text-xs font-bold text-indigo-700 uppercase tracking-widest">Multi-Cycle Roadmap</span>
+             <span className="text-xs font-bold text-indigo-700 uppercase tracking-widest">Multi-Plan Strategy</span>
            </div>
         ) : (
           <div className="bg-indigo-50 px-4 py-2 rounded-xl border border-indigo-100">
-            <span className="text-xs font-bold text-indigo-700">Multi-Plan Dashboard</span>
+            <span className="text-xs font-bold text-indigo-700">PI Dashboard</span>
           </div>
         )}
 
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-full bg-indigo-600 flex items-center justify-center border-2 border-white shadow-lg">
-            <span className="text-white font-black text-xs">SA</span>
+            <span className="text-white font-black text-xs">AA</span>
           </div>
         </div>
       </header>
@@ -233,80 +226,41 @@ const App: React.FC = () => {
             />
           )}
           {view === 'roadmap' && (
-            <RoadmapView plans={plans} onEnterPlan={enterPlan} />
+            <RoadmapView 
+              roadmapItems={roadmapItems}
+              plans={plans}
+              onCreateItem={handleCreateRoadmapItem}
+              onUpdateItem={handleUpdateRoadmapItem}
+              onDeleteItem={handleDeleteRoadmapItem}
+            />
           )}
           {activePlan && (
             <>
-              {view === 'teams' && (
-                <TeamManager 
-                  teams={activePlan.teams} 
-                  onAddTeam={(t) => updateActivePlan({ teams: [...activePlan.teams, t] })} 
-                  onDeleteTeam={(id) => updateActivePlan({ teams: activePlan.teams.filter(t => t.id !== id) })} 
-                  onUpdateTeam={(updated) => updateActivePlan({ teams: activePlan.teams.map(t => t.id === updated.id ? updated : t) })}
-                />
-              )}
+              {view === 'teams' && <TeamManager teams={activePlan.teams} onAddTeam={(t) => updateActivePlan({ teams: [...activePlan.teams, t] })} onDeleteTeam={(id) => updateActivePlan({ teams: activePlan.teams.filter(t => t.id !== id) })} onUpdateTeam={(updated) => updateActivePlan({ teams: activePlan.teams.map(t => t.id === updated.id ? updated : t) })} />}
               {view === 'activities' && (
                 <ActivityManager 
                   activities={activePlan.activities} 
                   teams={activePlan.teams}
                   allocations={activePlan.allocations}
+                  roadmapItems={roadmapItems}
                   onAddActivity={(a) => updateActivePlan({ activities: [...activePlan.activities, a] })}
                   onDeleteActivity={(id) => updateActivePlan({ activities: activePlan.activities.filter(a => id !== a.id) })}
                   onUpdateTeamStatus={updateActivityTeamStatus}
-                  onUpdateActivity={handleUpdateActivity}
+                  onUpdateActivity={(updated) => updateActivePlan({ activities: activePlan.activities.map(a => a.id === updated.id ? updated : a) })}
                 />
               )}
-              {view === 'priority' && (
-                <PriorityView 
-                  activities={activePlan.activities}
-                  teams={activePlan.teams}
-                  sprints={activeSprints}
-                  globalHolidays={activePlan.holidays}
-                  onUpdateActivities={(acts) => updateActivePlan({ activities: acts })}
-                />
-              )}
-              {view === 'board' && (
-                <PlanningBoard 
-                  teams={activePlan.teams}
-                  sprints={activeSprints}
-                  activities={activePlan.activities}
-                  allocations={activePlan.allocations}
-                  globalHolidays={activePlan.holidays}
-                  onAllocate={(a) => updateActivePlan({ allocations: [...activePlan.allocations, a] })}
-                  onUpdateAllocation={handleUpdateAllocation}
-                  onRemoveAllocation={(id) => updateActivePlan({ allocations: activePlan.allocations.filter(a => a.id !== id) })}
-                />
-              )}
-              {view === 'track' && (
-                <TrackDashboard 
-                  activities={activePlan.activities}
-                  sprints={activeSprints}
-                  allocations={activePlan.allocations}
-                  baselineAllocations={activePlan.baselineAllocations}
-                  teams={activePlan.teams}
-                />
-              )}
-              {view === 'calendar' && (
-                <TeamCalendar 
-                  teams={activePlan.teams}
-                  globalHolidays={activePlan.holidays}
-                />
-              )}
-              {view === 'settings' && (
-                <SettingsPanel 
-                  config={activePlan.config} 
-                  onUpdateConfig={(c) => updateActivePlan({ config: c })}
-                  holidays={activePlan.holidays}
-                  onUpdateHolidays={(h) => updateActivePlan({ holidays: h })}
-                />
-              )}
+              {view === 'priority' && <PriorityView activities={activePlan.activities} teams={activePlan.teams} sprints={activeSprints} globalHolidays={activePlan.holidays} onUpdateActivities={(acts) => updateActivePlan({ activities: acts })} />}
+              {view === 'board' && <PlanningBoard teams={activePlan.teams} sprints={activeSprints} activities={activePlan.activities} allocations={activePlan.allocations} globalHolidays={activePlan.holidays} onAllocate={(a) => updateActivePlan({ allocations: [...activePlan.allocations, a] })} onUpdateAllocation={(updated) => updateActivePlan({ allocations: activePlan.allocations.map(a => a.id === updated.id ? updated : a) })} onRemoveAllocation={(id) => updateActivePlan({ allocations: activePlan.allocations.filter(a => a.id !== id) })} />}
+              {view === 'track' && <TrackDashboard activities={activePlan.activities} sprints={activeSprints} allocations={activePlan.allocations} baselineAllocations={activePlan.baselineAllocations} teams={activePlan.teams} />}
+              {view === 'calendar' && <TeamCalendar teams={activePlan.teams} globalHolidays={activePlan.holidays} />}
+              {view === 'settings' && <SettingsPanel config={activePlan.config} onUpdateConfig={(c) => updateActivePlan({ config: c })} holidays={activePlan.holidays} onUpdateHolidays={(h) => updateActivePlan({ holidays: h })} />}
             </>
           )}
         </div>
       </main>
 
       <footer className="bg-white border-t border-slate-200 px-6 py-3 text-center text-[10px] text-slate-400 font-bold uppercase tracking-widest">
-        AgileNexus ART Control Systems &bull; Program Increment Orchestration
+        AgileART Control Systems &bull; Strategic Portfolio Orchestration
       </footer>
     </div>
   );

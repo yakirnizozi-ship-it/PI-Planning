@@ -1,4 +1,3 @@
-
 export interface Holiday {
   id: string;
   startDate: string; // ISO format
@@ -15,7 +14,7 @@ export interface VacationRange {
 export interface TeamMember {
   id: string;
   name: string;
-  holidays: VacationRange[]; // Array of vacation ranges
+  holidays: VacationRange[]; 
 }
 
 export interface Team {
@@ -39,12 +38,22 @@ export interface TeamEstimate {
   status: ActivityStatus;
 }
 
+export interface RoadmapItem {
+  id: string;
+  title: string;
+  description: string;
+  strategicEstimate: number; // Strategic effort in days
+  startDate?: string; // Scheduled date on roadmap
+  durationWeeks: number; // Visual duration on roadmap
+}
+
 export interface Activity {
   id: string;
   title: string;
   description: string;
   estimates: TeamEstimate[];
-  isIncluded?: boolean; // Flag to determine if it goes to the planning board
+  isIncluded?: boolean;
+  roadmapItemId?: string; // Link to strategic roadmap item
 }
 
 export interface Allocation {
@@ -71,7 +80,7 @@ export interface Plan {
   teams: Team[];
   activities: Activity[];
   allocations: Allocation[];
-  baselineAllocations?: Allocation[]; // Captured when transitioning from draft to active
+  baselineAllocations?: Allocation[];
   config: PIConfig;
   holidays: Holiday[];
 }
